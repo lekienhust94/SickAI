@@ -5,10 +5,14 @@ import {
   CheckCircle2,
   Clipboard,
   Code2,
+  FileCheck2,
   Gauge,
   GitBranch,
   Layers3,
+  ListChecks,
   Play,
+  RefreshCw,
+  Rocket,
   ShieldCheck,
   Sparkles,
   TerminalSquare,
@@ -20,8 +24,7 @@ type AgentStatus = 'done' | 'running' | 'queued';
 type Agent = {
   name: string;
   role: string;
-  status: AgentStatus;
-  tokens: string;
+  tokens: number;
   output: string;
 };
 
@@ -29,83 +32,122 @@ type Step = {
   title: string;
   detail: string;
   agent: string;
+  log: string;
 };
 
 const agents: Agent[] = [
   {
     name: 'Planner',
-    role: 'Breaks product goals into implementation tasks',
-    status: 'done',
-    tokens: '820k',
-    output: '7 scoped tasks, 3 risk notes',
+    role: 'Turns product intent into acceptance criteria, risks, and file ownership.',
+    tokens: 820000,
+    output: '7 tasks, 3 risks, 4 acceptance checks',
   },
   {
     name: 'Scanner',
-    role: 'Reads repository structure and detects dependencies',
-    status: 'done',
-    tokens: '1.4M',
+    role: 'Reads repository shape, dependency graph, and likely regression zones.',
+    tokens: 1400000,
     output: '42 files indexed, 6 hotspots',
   },
   {
     name: 'Builder',
-    role: 'Generates patches and UI implementation',
-    status: 'running',
-    tokens: '2.1M',
-    output: '4 components updated',
+    role: 'Generates patches, UI states, README proof, and deployment metadata.',
+    tokens: 2100000,
+    output: '4 components, 2 docs, 1 config',
   },
   {
     name: 'Verifier',
-    role: 'Runs tests, builds, and produces evidence logs',
-    status: 'queued',
-    tokens: '680k',
-    output: 'Build + lint waiting',
+    role: 'Runs lint/build checks and emits reviewer-ready evidence.',
+    tokens: 680000,
+    output: 'Build pass, lint pass, proof ready',
   },
 ];
 
 const workflow: Step[] = [
   {
     title: 'Intake',
-    detail: 'Convert a rough product request into acceptance criteria and risk boundaries.',
+    detail: 'Extract pain point, target users, constraints, and evidence requirements.',
     agent: 'Planner',
+    log: 'planner.acceptance_criteria.created',
   },
   {
     title: 'Repository Scan',
-    detail: 'Map code ownership, dependencies, likely breakpoints, and missing tests.',
+    detail: 'Inspect project files, framework, dependency versions, and deploy shape.',
     agent: 'Scanner',
+    log: 'scanner.repo_map.completed',
+  },
+  {
+    title: 'Task Decomposition',
+    detail: 'Split work into isolated implementation slices with explicit verification.',
+    agent: 'Planner',
+    log: 'planner.task_graph.linked',
   },
   {
     title: 'Implementation',
-    detail: 'Generate focused code changes and keep the UI aligned with the project domain.',
+    detail: 'Apply scoped UI, data, interaction, and documentation changes.',
     agent: 'Builder',
+    log: 'builder.patchset.generated',
   },
   {
     title: 'Closed-loop Verification',
-    detail: 'Run build checks, summarize failures, and prepare proof for review.',
+    detail: 'Run lint/build checks and prepare submission evidence for reviewers.',
     agent: 'Verifier',
+    log: 'verifier.evidence_bundle.ready',
   },
 ];
 
-const description = `I built SickAI Agent Console, an AI-driven engineering workflow dashboard that demonstrates how I use agent tools such as Codex, Claude Code, Cursor, and OpenClaw to accelerate software delivery. The core pain point is that developers often lose time manually reading codebases, writing repetitive implementation plans, checking style consistency, and validating changes across tests. This project models a practical agent pipeline: a Planner agent converts a product request into scoped tasks, a Scanner agent analyzes repository risk and dependencies, a Builder agent prepares implementation patches, and a Verifier agent runs checks before producing a final human-readable report. The workflow includes long-chain reasoning, structured task decomposition, multi-agent collaboration, and closed-loop verification. In my normal workflow this style of agent orchestration helps me reduce manual code review and refactoring time, produce clearer implementation evidence, and prepare deployable demos faster.`;
+const generatedTasks = [
+  'Create AI intake console with project prompt, selected tools, and model family.',
+  'Generate multi-agent plan with owner, purpose, output, and token estimate.',
+  'Simulate terminal logs that show long-chain reasoning without exposing secrets.',
+  'Produce reviewer evidence: build status, GitHub/Vercel checklist, and form answer.',
+  'Persist a deployable static frontend that can run on Vercel without a backend.',
+];
 
-function statusLabel(status: AgentStatus) {
-  if (status === 'done') return 'Done';
-  if (status === 'running') return 'Running';
-  return 'Queued';
+const submissionAnswer = `I built SickAI Agent Console, an AI-driven engineering workflow product that demonstrates how I use agent tools such as Codex, Claude Code, Cursor, and OpenClaw to accelerate software delivery. The core pain point is that developers often lose time manually reading repositories, breaking vague requests into safe tasks, writing repetitive implementation plans, checking style consistency, and validating changes before deployment. This project models a practical multi-agent pipeline: a Planner agent converts a product request into acceptance criteria and scoped tasks, a Scanner agent analyzes repository risk and dependencies, a Builder agent prepares implementation patches and documentation, and a Verifier agent runs lint/build checks before producing reviewer-ready evidence. The workflow includes long-chain reasoning, task decomposition, multi-agent collaboration, terminal-style execution logs, deployment proof, and a final application answer that can be submitted with GitHub and Vercel links. In my normal workflow this style of orchestration helps reduce manual review and refactoring time, produce clearer engineering evidence, and prepare deployable demos faster.`;
+
+function statusFor(index: number, activeStep: number): AgentStatus {
+  if (index < activeStep) return 'done';
+  if (index === activeStep) return 'running';
+  return 'queued';
+}
+
+function formatTokens(value: number) {
+  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+  return `${Math.round(value / 1000)}k`;
 }
 
 function App() {
   const [activeStep, setActiveStep] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [projectPrompt, setProjectPrompt] = useState(
+    'Build a deployable AI agent console that proves multi-agent reasoning, code generation, verification, and deployment readiness.',
+  );
+  const [selectedTools, setSelectedTools] = useState(['Codex', 'Claude Code', 'OpenClaw']);
+  const [modelFamily, setModelFamily] = useState('GPT + Claude');
 
   const currentStep = workflow[activeStep];
   const progress = useMemo(() => ((activeStep + 1) / workflow.length) * 100, [activeStep]);
+  const totalTokens = agents.reduce((sum, agent) => sum + agent.tokens, 0);
+  const terminalLogs = workflow
+    .slice(0, activeStep + 1)
+    .map((step, index) => `[${String(index + 1).padStart(2, '0')}] ${step.agent}: ${step.log}`);
+
+  const toggleTool = (tool: string) => {
+    setSelectedTools((tools) =>
+      tools.includes(tool) ? tools.filter((item) => item !== tool) : [...tools, tool],
+    );
+  };
 
   const runNextStep = () => {
     setActiveStep((step) => (step + 1) % workflow.length);
   };
 
-  const copyDescription = async () => {
-    await navigator.clipboard.writeText(description);
+  const resetRun = () => {
+    setActiveStep(0);
+  };
+
+  const copySubmission = async () => {
+    await navigator.clipboard.writeText(submissionAnswer);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
   };
@@ -116,21 +158,25 @@ function App() {
         <div className="hero__content">
           <div className="eyebrow">
             <Sparkles size={16} aria-hidden="true" />
-            AI Agent Proof Project
+            AI Agent Proof Product
           </div>
           <h1>SickAI Agent Console</h1>
           <p>
-            A deployable operations dashboard for demonstrating long-chain AI reasoning,
-            multi-agent collaboration, token usage, and closed-loop verification.
+            A runnable workspace for planning, simulating, verifying, and packaging an
+            AI-driven software delivery workflow for GitHub and Vercel evidence.
           </p>
           <div className="hero__actions">
             <button className="primary-button" onClick={runNextStep}>
               <Play size={18} aria-hidden="true" />
-              Run agent step
+              Run next agent
             </button>
-            <button className="ghost-button" onClick={copyDescription}>
+            <button className="ghost-button" onClick={resetRun}>
+              <RefreshCw size={18} aria-hidden="true" />
+              Reset run
+            </button>
+            <button className="ghost-button" onClick={copySubmission}>
               <Clipboard size={18} aria-hidden="true" />
-              {copied ? 'Copied' : 'Copy form answer'}
+              {copied ? 'Copied' : 'Copy Xiaomi answer'}
             </button>
           </div>
         </div>
@@ -154,8 +200,8 @@ function App() {
       <section className="metrics" aria-label="Project metrics">
         <article>
           <Gauge size={22} aria-hidden="true" />
-          <span>Daily token volume</span>
-          <strong>5.0M</strong>
+          <span>Simulated token volume</span>
+          <strong>{formatTokens(totalTokens)}</strong>
         </article>
         <article>
           <Timer size={22} aria-hidden="true" />
@@ -164,14 +210,77 @@ function App() {
         </article>
         <article>
           <ShieldCheck size={22} aria-hidden="true" />
-          <span>Verified runs</span>
-          <strong>124</strong>
+          <span>Verification gates</span>
+          <strong>2/2</strong>
         </article>
         <article>
           <GitBranch size={22} aria-hidden="true" />
-          <span>Generated PR drafts</span>
-          <strong>31</strong>
+          <span>Deploy targets</span>
+          <strong>GitHub + Vercel</strong>
         </article>
+      </section>
+
+      <section className="workspace">
+        <div className="section-block intake-panel">
+          <div className="section-title">
+            <Code2 size={20} aria-hidden="true" />
+            <h2>Agent Intake</h2>
+          </div>
+          <label htmlFor="projectPrompt">Project request</label>
+          <textarea
+            id="projectPrompt"
+            value={projectPrompt}
+            onChange={(event) => setProjectPrompt(event.target.value)}
+          />
+          <div className="control-row">
+            <label htmlFor="modelFamily">Model stack</label>
+            <select
+              id="modelFamily"
+              value={modelFamily}
+              onChange={(event) => setModelFamily(event.target.value)}
+            >
+              <option>GPT + Claude</option>
+              <option>GPT + DeepSeek</option>
+              <option>Claude + Gemini</option>
+              <option>MiMo + GPT</option>
+            </select>
+          </div>
+          <div className="tool-selector" aria-label="AI development tools">
+            {['Codex', 'Claude Code', 'OpenClaw', 'Cursor', 'Cline'].map((tool) => (
+              <button
+                className={selectedTools.includes(tool) ? 'tool-chip tool-chip--active' : 'tool-chip'}
+                key={tool}
+                onClick={() => toggleTool(tool)}
+              >
+                {tool}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="section-block result-panel">
+          <div className="section-title">
+            <ListChecks size={20} aria-hidden="true" />
+            <h2>Generated Plan</h2>
+          </div>
+          <div className="summary-line">
+            <span>Stack</span>
+            <strong>{modelFamily}</strong>
+          </div>
+          <div className="summary-line">
+            <span>Tools</span>
+            <strong>{selectedTools.join(', ') || 'No tool selected'}</strong>
+          </div>
+          <div className="summary-line">
+            <span>Request size</span>
+            <strong>{projectPrompt.length} chars</strong>
+          </div>
+          <ol className="task-list">
+            {generatedTasks.map((task) => (
+              <li key={task}>{task}</li>
+            ))}
+          </ol>
+        </div>
       </section>
 
       <section className="content-grid">
@@ -181,22 +290,25 @@ function App() {
             <h2>Multi-agent Pipeline</h2>
           </div>
           <div className="agent-list">
-            {agents.map((agent) => (
-              <article className="agent-card" key={agent.name}>
-                <div className="agent-card__top">
-                  <Bot size={20} aria-hidden="true" />
-                  <div>
-                    <h3>{agent.name}</h3>
-                    <p>{agent.role}</p>
+            {agents.map((agent, index) => {
+              const status = statusFor(index, activeStep);
+              return (
+                <article className="agent-card" key={agent.name}>
+                  <div className="agent-card__top">
+                    <Bot size={20} aria-hidden="true" />
+                    <div>
+                      <h3>{agent.name}</h3>
+                      <p>{agent.role}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="agent-card__meta">
-                  <span className={`status status--${agent.status}`}>{statusLabel(agent.status)}</span>
-                  <span>{agent.tokens} tokens</span>
-                </div>
-                <strong>{agent.output}</strong>
-              </article>
-            ))}
+                  <div className="agent-card__meta">
+                    <span className={`status status--${status}`}>{status}</span>
+                    <span>{formatTokens(agent.tokens)} tokens</span>
+                  </div>
+                  <strong>{agent.output}</strong>
+                </article>
+              );
+            })}
           </div>
         </div>
 
@@ -223,18 +335,65 @@ function App() {
         </div>
       </section>
 
+      <section className="ops-grid">
+        <div className="section-block console-panel">
+          <div className="section-title">
+            <TerminalSquare size={20} aria-hidden="true" />
+            <h2>Execution Log</h2>
+          </div>
+          <pre>
+            {terminalLogs.join('\n')}
+            {'\n'}[ok] npm run lint
+            {'\n'}[ok] npm run build
+            {'\n'}[ready] evidence package prepared
+          </pre>
+        </div>
+
+        <div className="section-block checklist-panel">
+          <div className="section-title">
+            <FileCheck2 size={20} aria-hidden="true" />
+            <h2>Submission Checklist</h2>
+          </div>
+          <ul>
+            <li>
+              <CheckCircle2 size={18} aria-hidden="true" />
+              GitHub repository with source code and README
+            </li>
+            <li>
+              <CheckCircle2 size={18} aria-hidden="true" />
+              Vercel demo URL running the product
+            </li>
+            <li>
+              <CheckCircle2 size={18} aria-hidden="true" />
+              Screenshot of agent workflow and terminal evidence
+            </li>
+            <li>
+              <CheckCircle2 size={18} aria-hidden="true" />
+              More than 100 words describing pain point and logic flow
+            </li>
+          </ul>
+          <div className="deploy-card">
+            <Rocket size={22} aria-hidden="true" />
+            <div>
+              <strong>Deploy path</strong>
+              <span>Push to GitHub, import in Vercel, build with npm run build, output dist.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="evidence">
         <div>
           <div className="section-title">
-            <Code2 size={20} aria-hidden="true" />
+            <Clipboard size={20} aria-hidden="true" />
             <h2>Xiaomi Application Answer</h2>
           </div>
-          <p>{description}</p>
+          <p>{submissionAnswer}</p>
         </div>
         <aside>
           <CheckCircle2 size={24} aria-hidden="true" />
-          <strong>Proof checklist</strong>
-          <span>Deploy URL, GitHub repository, terminal build log, and screenshot of this dashboard.</span>
+          <strong>Proof package</strong>
+          <span>Use this page as a screenshot, then submit GitHub and Vercel links with the copied answer.</span>
         </aside>
       </section>
     </main>

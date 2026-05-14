@@ -25,6 +25,11 @@ button {
   font: inherit;
 }
 
+textarea,
+select {
+  font: inherit;
+}
+
 .app-shell {
   min-height: 100vh;
   padding: 28px;
@@ -58,7 +63,10 @@ button {
 .hero__actions,
 .agent-card__top,
 .agent-card__meta,
-.panel-header {
+.panel-header,
+.summary-line,
+.deploy-card,
+.checklist-panel li {
   display: flex;
   align-items: center;
 }
@@ -127,6 +135,13 @@ h1 {
   margin-right: 9px;
 }
 
+.primary-button:hover,
+.ghost-button:hover,
+.tool-chip:hover,
+.timeline-item:hover {
+  transform: translateY(-1px);
+}
+
 .hero__panel {
   align-self: end;
   margin: 28px;
@@ -183,6 +198,8 @@ h1 {
 
 .metrics,
 .content-grid,
+.workspace,
+.ops-grid,
 .evidence {
   max-width: 1280px;
   margin: 24px auto 0;
@@ -198,7 +215,8 @@ h1 {
 .agent-card,
 .section-block,
 .evidence,
-.evidence aside {
+.evidence aside,
+.deploy-card {
   border: 1px solid #c8d1c2;
   background: #fbfdf7;
 }
@@ -217,7 +235,9 @@ h1 {
 .metrics span,
 .agent-card p,
 .timeline-item p,
-.evidence aside span {
+.evidence aside span,
+.summary-line span,
+.deploy-card span {
   color: #596657;
 }
 
@@ -229,6 +249,18 @@ h1 {
 .content-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  gap: 18px;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 18px;
+}
+
+.ops-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
   gap: 18px;
 }
 
@@ -244,6 +276,95 @@ h1 {
 .section-title h2 {
   margin-bottom: 0;
   font-size: 1.25rem;
+}
+
+.intake-panel label {
+  display: block;
+  margin-bottom: 8px;
+  color: #354136;
+  font-weight: 800;
+}
+
+.intake-panel textarea {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  border: 1px solid #b9c4b2;
+  background: #f5f8f0;
+  padding: 14px;
+  color: #17201a;
+}
+
+.control-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.control-row label {
+  margin-bottom: 0;
+}
+
+.control-row select {
+  min-height: 44px;
+  border: 1px solid #b9c4b2;
+  background: #fff;
+  padding: 0 12px;
+  color: #17201a;
+}
+
+.tool-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.tool-chip {
+  min-height: 38px;
+  border: 1px solid #b9c4b2;
+  background: #f5f8f0;
+  padding: 0 12px;
+  color: #17201a;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.tool-chip--active {
+  border-color: #295d8f;
+  background: #295d8f;
+  color: #fff;
+}
+
+.result-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.summary-line {
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid #d8dfd2;
+  padding: 10px 0;
+}
+
+.summary-line strong {
+  max-width: 62%;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.task-list {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding-left: 20px;
+}
+
+.task-list li {
+  padding-left: 4px;
 }
 
 .agent-list {
@@ -285,6 +406,7 @@ h1 {
   align-items: center;
   min-height: 28px;
   padding: 0 10px;
+  text-transform: capitalize;
   color: #17201a;
   font-weight: 800;
 }
@@ -361,6 +483,55 @@ h1 {
   color: #295d8f;
 }
 
+.console-panel pre {
+  min-height: 230px;
+  overflow: auto;
+  margin: 0;
+  border: 1px solid #202820;
+  background: #111713;
+  padding: 18px;
+  color: #bff643;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.92rem;
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
+
+.checklist-panel ul {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checklist-panel li {
+  gap: 10px;
+  color: #354136;
+}
+
+.checklist-panel li svg {
+  flex: 0 0 auto;
+  color: #2e7d32;
+}
+
+.deploy-card {
+  gap: 12px;
+  margin-top: 22px;
+  padding: 16px;
+  background: #eaf2fa;
+}
+
+.deploy-card svg {
+  flex: 0 0 auto;
+  color: #295d8f;
+}
+
+.deploy-card strong,
+.deploy-card span {
+  display: block;
+}
+
 @media (max-width: 920px) {
   .app-shell {
     padding: 14px;
@@ -368,6 +539,8 @@ h1 {
 
   .hero,
   .content-grid,
+  .workspace,
+  .ops-grid,
   .evidence {
     grid-template-columns: 1fr;
   }
@@ -403,5 +576,19 @@ h1 {
 
   .timeline-item {
     grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  .control-row {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-line {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .summary-line strong {
+    max-width: 100%;
+    text-align: left;
   }
 }
