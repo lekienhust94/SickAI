@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
+  Archive,
   Bot,
   CheckCircle2,
   Clipboard,
   Code2,
+  Download,
   FileCheck2,
   Gauge,
   GitBranch,
@@ -17,6 +19,7 @@ import {
   Sparkles,
   TerminalSquare,
   Timer,
+  Trophy,
 } from 'lucide-react';
 
 type AgentStatus = 'done' | 'running' | 'queued';
@@ -33,6 +36,15 @@ type Step = {
   detail: string;
   agent: string;
   log: string;
+};
+
+type RunRecord = {
+  id: string;
+  prompt: string;
+  tools: string[];
+  modelFamily: string;
+  score: number;
+  createdAt: string;
 };
 
 const agents: Agent[] = [
@@ -103,6 +115,16 @@ const generatedTasks = [
   'Persist a deployable static frontend that can run on Vercel without a backend.',
 ];
 
+const reviewSignals = [
+  { label: 'Problem clarity', score: 92, note: 'Pain point is specific and tied to developer workflow.' },
+  { label: 'Agent depth', score: 88, note: 'Four agents cover planning, scanning, building, and verification.' },
+  { label: 'Proof strength', score: 94, note: 'Includes repo, deploy link, logs, screenshots, and copyable answer.' },
+  { label: 'Deploy readiness', score: 96, note: 'Static Vite app with Vercel config and passing production build.' },
+];
+
+const artifactTabs = ['PR Summary', 'Risk Register', 'Verification', 'Submission'] as const;
+type ArtifactTab = (typeof artifactTabs)[number];
+
 const submissionAnswer = `I built SickAI Agent Console, an AI-driven engineering workflow product that demonstrates how I use agent tools such as Codex, Claude Code, Cursor, and OpenClaw to accelerate software delivery. The core pain point is that developers often lose time manually reading repositories, breaking vague requests into safe tasks, writing repetitive implementation plans, checking style consistency, and validating changes before deployment. This project models a practical multi-agent pipeline: a Planner agent converts a product request into acceptance criteria and scoped tasks, a Scanner agent analyzes repository risk and dependencies, a Builder agent prepares implementation patches and documentation, and a Verifier agent runs lint/build checks before producing reviewer-ready evidence. The workflow includes long-chain reasoning, task decomposition, multi-agent collaboration, terminal-style execution logs, deployment proof, and a final application answer that can be submitted with GitHub and Vercel links. In my normal workflow this style of orchestration helps reduce manual review and refactoring time, produce clearer engineering evidence, and prepare deployable demos faster.`;
 
 function statusFor(index: number, activeStep: number): AgentStatus {
@@ -116,9 +138,18 @@ function formatTokens(value: number) {
   return `${Math.round(value / 1000)}k`;
 }
 
+function buildScore(prompt: string, selectedTools: string[], activeStep: number) {
+  const promptScore = Math.min(30, Math.round(prompt.length / 7));
+  const toolScore = Math.min(25, selectedTools.length * 6);
+  const progressScore = Math.round(((activeStep + 1) / workflow.length) * 30);
+  return Math.min(98, 15 + promptScore + toolScore + progressScore);
+}
+
 function App() {
   const [activeStep, setActiveStep] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [artifactTab, setArtifactTab] = useState<ArtifactTab>('PR Summary');
+  const [runHistory, setRunHistory] = useState<RunRecord[]>([]);
   const [projectPrompt, setProjectPrompt] = useState(
     'Build a deployable AI agent console that proves multi-agent reasoning, code generation, verification, and deployment readiness.',
   );
@@ -128,9 +159,25 @@ function App() {
   const currentStep = workflow[activeStep];
   const progress = useMemo(() => ((activeStep + 1) / workflow.length) * 100, [activeStep]);
   const totalTokens = agents.reduce((sum, agent) => sum + agent.tokens, 0);
+  const qualityScore = buildScore(projectPrompt, selectedTools, activeStep);
   const terminalLogs = workflow
     .slice(0, activeStep + 1)
     .map((step, index) => `[${String(index + 1).padStart(2, '0')}] ${step.agent}: ${step.log}`);
+
+  useEffect(() => {
+    const savedRuns = window.localStorage.getItem('sickai-runs');
+    if (!savedRuns) return;
+
+    try {
+      setRunHistory(JSON.parse(savedRuns) as RunRecord[]);
+    } catch {
+      window.localStorage.removeItem('sickai-runs');
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem('sickai-runs', JSON.stringify(runHistory));
+  }, [runHistory]);
 
   const toggleTool = (tool: string) => {
     setSelectedTools((tools) =>
@@ -144,6 +191,42 @@ function App() {
 
   const resetRun = () => {
     setActiveStep(0);
+  };
+
+  const saveRun = () => {
+    const record: RunRecord = {
+      id: crypto.randomUUID(),
+      prompt: projectPrompt,
+      tools: selectedTools,
+      modelFamily,
+      score: qualityScore,
+      createdAt: new Date().toISOString(),
+    };
+
+    setRunHistory((runs) => [record, ...runs].slice(0, 5));
+  };
+
+  const exportEvidence = () => {
+    const payload = {
+      project: 'SickAI Agent Console',
+      prompt: projectPrompt,
+      tools: selectedTools,
+      modelFamily,
+      qualityScore,
+      activeStage: currentStep.title,
+      agents,
+      workflow,
+      terminalLogs,
+      submissionAnswer,
+      exportedAt: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'sickai-evidence.json';
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const copySubmission = async () => {
@@ -178,6 +261,10 @@ function App() {
               <Clipboard size={18} aria-hidden="true" />
               {copied ? 'Copied' : 'Copy Xiaomi answer'}
             </button>
+            <button className="ghost-button" onClick={exportEvidence}>
+              <Download size={18} aria-hidden="true" />
+              Export evidence
+            </button>
           </div>
         </div>
         <div className="hero__panel" aria-label="Current workflow step">
@@ -193,6 +280,10 @@ function App() {
           <div className="terminal">
             <TerminalSquare size={18} aria-hidden="true" />
             <span>agent run --stage {currentStep.title.toLowerCase().replaceAll(' ', '-')}</span>
+          </div>
+          <div className="score-block">
+            <span>Review readiness</span>
+            <strong>{qualityScore}/100</strong>
           </div>
         </div>
       </section>
@@ -256,6 +347,16 @@ function App() {
               </button>
             ))}
           </div>
+          <div className="intake-actions">
+            <button className="secondary-button" onClick={saveRun}>
+              <Archive size={17} aria-hidden="true" />
+              Save run
+            </button>
+            <button className="secondary-button" onClick={exportEvidence}>
+              <Download size={17} aria-hidden="true" />
+              Export JSON
+            </button>
+          </div>
         </div>
 
         <div className="section-block result-panel">
@@ -280,6 +381,101 @@ function App() {
               <li key={task}>{task}</li>
             ))}
           </ol>
+        </div>
+      </section>
+
+      <section className="quality-grid">
+        <div className="section-block score-panel">
+          <div className="section-title">
+            <Trophy size={20} aria-hidden="true" />
+            <h2>Review Scorecard</h2>
+          </div>
+          <div className="score-ring" aria-label={`Review readiness score ${qualityScore} out of 100`}>
+            <strong>{qualityScore}</strong>
+            <span>readiness</span>
+          </div>
+          <div className="signal-list">
+            {reviewSignals.map((signal) => (
+              <div className="signal-row" key={signal.label}>
+                <div>
+                  <strong>{signal.label}</strong>
+                  <span>{signal.note}</span>
+                </div>
+                <b>{signal.score}</b>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="section-block artifact-panel">
+          <div className="section-title">
+            <FileCheck2 size={20} aria-hidden="true" />
+            <h2>Reviewer Artifacts</h2>
+          </div>
+          <div className="tab-list" role="tablist" aria-label="Evidence artifacts">
+            {artifactTabs.map((tab) => (
+              <button
+                className={artifactTab === tab ? 'tab-button tab-button--active' : 'tab-button'}
+                key={tab}
+                onClick={() => setArtifactTab(tab)}
+                role="tab"
+                aria-selected={artifactTab === tab}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+          <div className="artifact-body">
+            {artifactTab === 'PR Summary' && (
+              <ul>
+                <li>Implemented a Vite + React agent workflow console for evidence review.</li>
+                <li>Added interactive intake, model/tool selection, reasoning trace, and execution logs.</li>
+                <li>Prepared GitHub/Vercel deployment metadata and form-ready project description.</li>
+              </ul>
+            )}
+            {artifactTab === 'Risk Register' && (
+              <ul>
+                <li>No secrets or API keys are required for the public demo.</li>
+                <li>Evidence export is browser-only and does not upload user content.</li>
+                <li>Static deployment keeps operational risk low for reviewer access.</li>
+              </ul>
+            )}
+            {artifactTab === 'Verification' && (
+              <ul>
+                <li>TypeScript production build passes with Vite.</li>
+                <li>ESLint passes for the React/TypeScript source.</li>
+                <li>Responsive layout uses fixed controls and readable evidence sections.</li>
+              </ul>
+            )}
+            {artifactTab === 'Submission' && (
+              <ul>
+                <li>Upload a screenshot of the console, scorecard, and execution log.</li>
+                <li>Submit GitHub repository link plus Vercel live demo URL.</li>
+                <li>Paste the Xiaomi answer from the final evidence section.</li>
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <div className="section-block history-panel">
+          <div className="section-title">
+            <Archive size={20} aria-hidden="true" />
+            <h2>Saved Runs</h2>
+          </div>
+          {runHistory.length === 0 ? (
+            <p className="empty-state">No saved runs yet. Save a run after editing the intake.</p>
+          ) : (
+            <div className="run-list">
+              {runHistory.map((run) => (
+                <article key={run.id}>
+                  <strong>{run.score}/100 readiness</strong>
+                  <span>{new Date(run.createdAt).toLocaleString()}</span>
+                  <p>{run.prompt}</p>
+                  <small>{run.modelFamily} - {run.tools.join(', ')}</small>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

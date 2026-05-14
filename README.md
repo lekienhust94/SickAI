@@ -1,6 +1,6 @@
 # SickAI Agent Console
 
-SickAI Agent Console is a deployable React/Vite product that demonstrates an AI-driven engineering workflow. It is designed as proof material for AI token or agent-access applications: the app includes an intake console, model/tool selection, multi-agent pipeline simulation, generated implementation plan, terminal-style execution logs, verification checklist, and a ready-to-copy Xiaomi application answer.
+SickAI Agent Console is a deployable React/Vite product that demonstrates an AI-driven engineering workflow. It is designed as proof material for AI token or agent-access applications: the app includes an intake console, model/tool selection, multi-agent pipeline simulation, generated implementation plan, terminal-style execution logs, verification checklist, review scorecard, saved runs, JSON evidence export, and a ready-to-copy Xiaomi application answer.
 
 ## What It Demonstrates
 
@@ -9,6 +9,9 @@ SickAI Agent Console is a deployable React/Vite product that demonstrates an AI-
 - Long-chain reasoning stages: intake, repository scan, task decomposition, patch generation, test execution, and evidence packaging.
 - Terminal-style logs and a deployment checklist for GitHub/Vercel proof screenshots.
 - Operational metrics such as simulated token volume, time saved, verification gates, and deploy targets.
+- A review scorecard that makes the product quality and submission readiness visible.
+- Browser-only saved runs through localStorage, so reviewers can see repeatable workflow history without a backend.
+- JSON evidence export for a portable artifact that includes prompt, tools, agents, logs, and submission text.
 
 ## Local Development
 
